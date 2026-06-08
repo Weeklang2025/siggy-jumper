@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Siggy Jumper</title>
+    <link rel="icon" type="image/png" href="images/favicon.png">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        @font-face {
+            font-family: 'SuperMario';
+            src: url('fonts/SuperMario256.ttf') format('truetype');
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #0d0d0d;
+            background-image: url('Outline.png');
+            background-repeat: repeat;
+            background-size: 300px 300px;
+        }
+        #mainScreen, #howToPlayModal, #gameOverModal, #gameCanvas {
+            font-family: 'SuperMario', sans-serif;
+        }
+        #mainScreen {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 1200px;
+            height: 800px;
+            background: transparent;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            z-index: 1;   /* ← добавь эту строку */
+        }
+        #menuImage {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            object-fit: cover;
+            z-index: -1;
+        }
+        #mainScreen h1 {
+            font-size: 84px;
+            color: #1fffb0;
+            margin: 10px;
+            margin-top: 130px;
+            text-shadow: -3px -3px 0 #000, 3px -3px 0 #000, -3px 3px 0 #000, 3px 3px 0 #000;
+        }
+        #startPrompt {
+            font-size: 24px;
+            color: #1fffb0;
+            text-shadow: -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000;
+            margin: 20px 0;
+        }
+        #howToPlayBtn {
+            font-size: 24px;
+            color: white;
+            background-color: rgba(0,0,0,0.7);
+            padding: 10px 20px;
+            border: 3px solid #000;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: all 0.3s;
+            font-family: 'SuperMario', sans-serif;
+        }
+        #howToPlayBtn:hover { background-color: rgba(255,105,180,0.3); transform: scale(1.05); }
+        #leaderboardBtn {
+            font-size: 24px;
+            color: white;
+            background-color: rgba(0,0,0,0.7);
+            padding: 10px 20px;
+            border: 3px solid #FFD700;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 12px;
+            transition: all 0.3s;
+            font-family: 'SuperMario', sans-serif;
+        }
+        #leaderboardBtn:hover { background-color: rgba(255,215,0,0.2); transform: scale(1.05); }
+        #startPrompt { display: none; }
+
+        /* Leaderboard Modal */
+        #leaderboardModal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        #leaderboardModal .modal-content {
+            background: rgba(20,20,40,0.97);
+            padding: 40px 60px;
+            border: 6px solid #FFD700;
+            border-radius: 15px;
+            max-width: 560px;
+            width: 90%;
+            text-align: center;
+        }
+        #leaderboardTableWrap {
+            max-height: 400px;
+            overflow-y: auto;
+            margin-bottom: 24px;
+            scrollbar-width: thin;
+            scrollbar-color: #FFD700 rgba(0,0,0,0.3);
+        }
+        #leaderboardModal h2 {
+            color: #FFD700;
+            font-size: 44px;
+            margin: 0 0 28px;
+            text-shadow: 2px 2px 4px black;
+        }
+        #leaderboardTable {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: 'SuperMario', sans-serif;
+            font-size: 16px;
+        }
+        #leaderboardTable th {
+            color: #59E09D;
+            font-size: 14px;
+            padding: 8px 12px;
+            border-bottom: 2px solid rgba(89,224,157,0.3);
+            text-align: left;
+        }
+        #leaderboardTable th:last-child { text-align: right; }
+        #leaderboardTable td {
+            padding: 10px 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.07);
+            color: white;
+        }
+        #leaderboardTable td:last-child { text-align: right; color: #1fffb0; }
+        #leaderboardTable tr:first-child td { color: #FFD700; font-size: 18px; }
+        #leaderboardEmpty {
+            color: #555;
+            font-family: monospace;
+            font-size: 14px;
+            margin: 20px 0;
+        }
+        #closeLeaderboardBtn {
+            font-family: 'SuperMario', sans-serif;
+            font-size: 24px;
+            color: white;
+            background-color: rgba(255,215,0,0.3);
+            padding: 12px 36px;
+            border: 3px solid #FFD700;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        #closeLeaderboardBtn:hover { background-color: rgba(255,215,0,0.5); transform: scale(1.05); }
+        /* ===== SOCIAL ICONS ===== */
+        #socialIcons {
+            position: fixed;
+            bottom: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 18px;
+            z-index: 9999;
+        }
+        #socialIcons a {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 44px;
+            height: 44px;
+            background: rgba(0,0,0,0.6);
+            border: 2px solid #1fffb0;
+            border-radius: 10px;
+            transition: all 0.25s;
+            text-decoration: none;
+        }
+        #socialIcons a:hover {
+            background: rgba(31,255,176,0.2);
+            transform: scale(1.15);
+            box-shadow: 0 0 12px rgba(31,255,176,0.6);
+        }
+        #socialIcons a svg {
+            width: 22px;
+            height: 22px;
+            fill: #1fffb0;
+        }
+
+        #mainScreenLastScore {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 32px;
+            color: white;
+            background-color: rgba(0,0,0,0.7);
+            padding: 15px 40px;
+            border: 4px solid #59E09D;
+            border-radius: 10px;
+            white-space: nowrap;
+        }
+        #mainScreenLastScore span { color: #FFD700; }
+
+        /* ===== WEB3 WALLET UI ===== */
+        #walletPanel {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 8px;
+            z-index: 9999;
+        }
+        #connectWalletBtn {
+            font-family: 'SuperMario', sans-serif;
+            font-size: 16px;
+            color: #0d0d0d;
+            background: linear-gradient(135deg, #1fffb0, #59E09D);
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(31,255,176,0.4);
+        }
+        #connectWalletBtn:hover { transform: scale(1.05); box-shadow: 0 6px 20px rgba(31,255,176,0.6); }
+        #walletInfo {
+            display: none;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 6px;
+        }
+        #walletAddress {
+            font-family: monospace;
+            font-size: 13px;
+            color: #1fffb0;
+            background: rgba(0,0,0,0.8);
+            padding: 6px 12px;
+            border: 2px solid #59E09D;
+            border-radius: 6px;
+        }
+        #ritualBalance {
+            font-family: 'SuperMario', sans-serif;
+            font-size: 14px;
+            color: #FFD700;
+            background: rgba(0,0,0,0.8);
+            padding: 6px 12px;
+            border: 2px solid #FFD700;
+            border-radius: 6px;
+        }
+        #disconnectBtn {
+            font-family: 'SuperMario', sans-serif;
+            font-size: 12px;
+            color: #aaa;
+            background: rgba(0,0,0,0.6);
+            padding: 4px 10px;
+            border: 1px solid #555;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        #disconnectBtn:hover { color: #ff4444; border-color: #ff4444; }
+
+        /* In-game wallet HUD */
+        #gameWalletHud {
+            display: none;
+            position: fixed;
+            top: 12px;
+            right: 20px;
+            z-index: 50;
+            font-family: 'SuperMario', sans-serif;
+            font-size: 13px;
+            color: #1fffb0;
+            background: rgba(0,0,0,0.75);
+            padding: 6px 14px;
+            border: 2px solid #59E09D;
+            border-radius: 8px;
+        }
+
+        /* ===== PAY-TO-PLAY MODAL ===== */
+        #payToPlayModal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.88);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+        #payToPlayModal .modal-content {
+            background: rgba(13,13,30,0.98);
+            padding: 50px 60px;
+            border: 6px solid #1fffb0;
+            border-radius: 18px;
+            max-width: 560px;
+            text-align: center;
+            box-shadow: 0 0 60px rgba(31,255,176,0.25);
+        }
+        #payToPlayModal .ritual-logo {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 20px;
+            background: linear-gradient(135deg, #1fffb0, #59E09D);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+        }
+        #payToPlayModal h2 {
+            font-family: 'SuperMario', sans-serif;
+            color: #1fffb0;
+            font-size: 40px;
+            margin: 0 0 10px;
+            text-shadow: 2px 2px 4px black;
+        }
+        #payToPlayModal .subtitle {
+            color: #aaa;
+            font-size: 15px;
+            margin: 0 0 30px;
+            font-family: monospace;
+        }
+        .pay-detail {
+            background: rgba(31,255,176,0.07);
+            border: 1px solid rgba(31,255,176,0.2);
+            border-radius: 10px;
+            padding: 16px 24px;
+            margin-bottom: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-family: monospace;
+            font-size: 15px;
+            color: white;
+        }
+        .pay-detail .label { color: #888; }
+        .pay-detail .value { color: #1fffb0; font-weight: bold; font-size: 18px; }
+        .pay-detail .value.gold { color: #FFD700; }
+        #payBtn {
+            font-family: 'SuperMario', sans-serif;
+            font-size: 22px;
+            color: #0d0d0d;
+            background: linear-gradient(135deg, #1fffb0, #59E09D);
+            padding: 14px 40px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            margin-top: 20px;
+            width: 100%;
+            transition: all 0.3s;
+            box-shadow: 0 4px 20px rgba(31,255,176,0.4);
+        }
+        #payBtn:hover { transform: scale(1.03); box-shadow: 0 6px 30px rgba(31,255,176,0.6); }
+        #payBtn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        #paySkipBtn {
+            font-family: 'SuperMario', sans-serif;
+            font-size: 14px;
+            color: #555;
+            background: transparent;
+            padding: 10px;
+            border: none;
+            cursor: pointer;
+            margin-top: 8px;
+            width: 100%;
+            transition: color 0.2s;
+        }
+        #paySkipBtn:hover { color: #888; }
+        #payStatus {
+            font-family: monospace;
+            font-size: 13px;
+            color: #FFD700;
+            margin-top: 12px;
+            min-height: 20px;
+        }
+        #payError {
+            font-family: monospace;
+            font-size: 13px;
+            color: #ff4444;
+            margin-top: 6px;
+            min-height: 16px;
+        }
+
+        /* ===== TX SUCCESS TOAST ===== */
+        #txToast {
+            display: none;
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(13,13,30,0.95);
+            border: 2px solid #1fffb0;
+            border-radius: 10px;
+            padding: 14px 28px;
+            z-index: 3000;
+            font-family: monospace;
+            font-size: 14px;
+            color: #1fffb0;
+            box-shadow: 0 4px 20px rgba(31,255,176,0.3);
+        }
+        #txToast a { color: #FFD700; text-decoration: none; }
+        #txToast a:hover { text-decoration: underline; }
+
+        /* ===== MODAL STYLES ===== */
+        #howToPlayModal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        #howToPlayModal .modal-content {
+            background: rgba(20,20,40,0.95);
+            padding: 40px 60px;
+            border: 6px solid #59E09D;
+            border-radius: 15px;
+            max-width: 700px;
+            text-align: center;
+        }
+        #howToPlayModal h2 { color: #59E09D; font-size: 48px; margin: 0 0 30px; text-shadow: 2px 2px 4px black; }
+        #howToPlayModal p { color: white; font-size: 28px; margin: 20px 0; line-height: 1.6; }
+        #howToPlayModal button {
+            font-family: 'SuperMario', sans-serif;
+            font-size: 28px;
+            color: white;
+            background-color: rgba(255,105,180,0.5);
+            padding: 15px 40px;
+            border: 3px solid #59E09D;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: all 0.3s;
+        }
+        #howToPlayModal button:hover { background-color: rgba(67,209,142,0.8); transform: scale(1.05); }
+        #gameOverModal {
+            display: none;
+            position: fixed;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 400px;
+            background: rgba(255,255,255,0.9);
+            padding: 20px;
+            color: black;
+            font-size: 20px;
+            z-index: 10;
+            font-family: 'SuperMario', sans-serif;
+        }
+        #gameOverModal p { color: black; font-size: 20px; margin: 0 0 10px; }
+        #gameOverModal span { color: #ff4500; }
+        #gameOverModal button {
+            font-family: 'SuperMario', sans-serif;
+            font-size: 20px;
+            color: white;
+            background-color: rgba(0,0,0,0.7);
+            padding: 5px 10px;
+            border: none;
+            cursor: pointer;
+        }
+        #gameCanvas {
+            display: none;
+            position: fixed;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 1200px;
+            height: 800px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Wallet Panel (вне mainScreen, чтобы не обрезалось) -->
+    <div id="walletPanel">
+        <button id="connectWalletBtn">🔗 Connect Wallet</button>
+        <div id="walletInfo">
+            <div id="walletAddress">0x0000...0000</div>
+            <div id="ritualBalance">⚡ 0 CRAT</div>
+            <button id="disconnectBtn">Disconnect</button>
+        </div>
+    </div>
+
+    <!-- MAIN SCREEN -->
+    <div id="mainScreen">
+        <img src="images/menu_background.png" alt="Menu Background" id="menuImage">
+        <h1>Siggy Jumper</h1>
+
+        <p id="startPrompt">Press Space or Enter to start</p>
+        <button id="playBtn" onclick="startGame()" style="
+            font-family:'SuperMario',sans-serif;
+            font-size:32px;
+            color:#0d0d0d;
+            background:linear-gradient(135deg,#1fffb0,#59E09D);
+            padding:18px 60px;
+            border:none;
+            border-radius:12px;
+            cursor:pointer;
+            margin-top:10px;
+            margin-bottom:10px;
+            box-shadow:0 4px 25px rgba(31,255,176,0.5);
+            transition:all 0.3s;
+        " onmouseover="this.style.transform='scale(1.07)'" onmouseout="this.style.transform='scale(1)'">▶ PLAY</button>
+        <button id="howToPlayBtn">How to Play</button>
+        <button id="leaderboardBtn">🏆 Leaderboard</button>
+        <p id="mainScreenLastScore">Last Score: <span id="mainLastScore">0</span></p>
+    </div>
+
+    <!-- GAME CANVAS -->
+    <canvas id="gameCanvas" width="1200" height="800"></canvas>
+
+    <!-- In-game wallet HUD -->
+    <div id="gameWalletHud">⚡ <span id="hudBalance">0</span> CRAT</div>
+
+    <!-- HOW TO PLAY MODAL -->
+    <div id="howToPlayModal">
+        <div class="modal-content">
+            <h2>How to Play</h2>
+            <p>Use A/D or Arrow Keys to move</p>
+            <p>Press Space to jump</p>
+            <p>Jump on teal Pepe frog Mascot to earn points!</p>
+            <p>Watch out for Josh, who drops Ritual Kek on you!</p>
+            <button id="closeModalBtn">Close</button>
+        </div>
+    </div>
+
+    <!-- LEADERBOARD MODAL -->
+    <div id="leaderboardModal">
+        <div class="modal-content">
+            <h2>🏆 Leaderboard</h2>
+            <div id="leaderboardTableWrap">
+                <table id="leaderboardTable">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Player</th>
+                            <th style="text-align:right">Score</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboardBody"></tbody>
+                </table>
+            </div>
+            <p id="leaderboardEmpty" style="display:none;">No scores yet. Be the first!</p>
+            <button id="closeLeaderboardBtn">Close</button>
+        </div>
+    </div>
+
+    <!-- GAME OVER MODAL -->
+    <div id="gameOverModal">
+        <p>Game Over! Score: <span id="finalScore"></span></p>
+        <p>Last Score: <span id="lastScore">0</span></p>
+        <button id="restartBtn">Restart</button>
+    </div>
+
+    <!-- PAY TO PLAY MODAL -->
+    <div id="payToPlayModal">
+        <div class="modal-content">
+            <div class="ritual-logo">⚡</div>
+            <h2>Pay to Play</h2>
+            <p class="subtitle">Powered by Ritual Network</p>
+
+            <div class="pay-detail">
+                <span class="label">Entry fee</span>
+                <span class="value" id="entryFeeDisplay">0.1 CRAT</span>
+            </div>
+            <div class="pay-detail">
+                <span class="label">Your balance</span>
+                <span class="value gold" id="payModalBalance">— CRAT</span>
+            </div>
+            <div class="pay-detail">
+                <span class="label">Network</span>
+                <span class="value" style="color:#aaa;font-size:14px">Ritual Testnet</span>
+            </div>
+
+            <button id="payBtn">⚡ Pay & Play</button>
+            <!-- paySkipBtn removed: payment is mandatory -->
+            <button id="paySkipBtn" style="display:none;"></button>
+
+            <div id="payStatus"></div>
+            <div id="payError"></div>
+        </div>
+    </div>
+
+    <!-- TX SUCCESS TOAST -->
+    <div id="txToast">
+        ✅ Transaction sent! <a id="txLink" href="#" target="_blank">View on explorer ↗</a>
+    </div>
+
+    <!-- AUDIO -->
+    <audio id="mainMenuMusic" loop preload="auto">
+        <source src="mainMenuMusic.mp3" type="audio/mpeg">
+        <source src="mainMenuMusic.ogg" type="audio/ogg">
+    </audio>
+    <audio id="backgroundMusic" loop preload="auto">
+        <source src="background_music.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="deathSound" preload="auto">
+        <source src="death_sound.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="jumpSound" preload="auto">
+        <source src="jump_sound.mp3" type="audio/mpeg">
+    </audio>
+
+    <!-- ethers.js (CDN) — надёжный jsdelivr -->
+    <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.0/dist/ethers.umd.min.js"></script>
+    <!-- Web3 wallet module -->
+    <script src="web3wallet.js"></script>
+    <!-- Game logic -->
+    <script src="game.js"></script>
+    <script>
+        // Social icons: скрываем при старте, показываем когда mainScreen снова виден
+        document.getElementById('playBtn').addEventListener('click', () => {
+            document.getElementById('socialIcons').style.display = 'none';
+        });
+        const _socialObserver = new MutationObserver(() => {
+            const ms = document.getElementById('mainScreen');
+            const visible = ms && getComputedStyle(ms).display !== 'none';
+            document.getElementById('socialIcons').style.display = visible ? 'flex' : 'none';
+        });
+        _socialObserver.observe(document.getElementById('mainScreen'), { attributes: true, attributeFilter: ['style', 'class'] });
+
+        // Leaderboard кнопки
+        document.getElementById('leaderboardBtn').addEventListener('click', () => {
+    const modal = document.getElementById('leaderboardModal');
+    modal.style.cssText = 'display:flex!important;z-index:99999!important;position:fixed!important;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);justify-content:center;align-items:center;';
+    renderLeaderboard();
+});
+document.getElementById('closeLeaderboardBtn').addEventListener('click', () => {
+    document.getElementById('leaderboardModal').style.display = 'none';
+});
+    </script>
+    <!-- Social Icons -->
+    <div id="socialIcons">
+        <a href="https://ritual.net/" target="_blank" title="Ritual Website">
+    <img src="images/ritual-icon.png" style="width:32px;height:32px;mix-blend-mode:screen;">
+</a>
+        <a href="https://x.com/ritualnet" target="_blank" title="Ritual on X">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+        </a>
+        <a href="https://discord.com/invite/ritual-net" target="_blank" title="Ritual Discord">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
+        </a>
+        <a href="https://github.com/ritual-net" target="_blank" title="Ritual GitHub">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+        </a>
+    </div>
+
+</body>
+</html>
