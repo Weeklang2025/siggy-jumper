@@ -1,7 +1,7 @@
- web3wallet.js — Ritual Network Web3 Integration
+ /**
+ * web3wallet.js — Ritual Network Web3 Integration
  * Оплата нативным токеном CRAT (legacy tx, type 0)
  * Fixes: EIP-6963 wallet detection, retry logic, mandatory payment
- * Fix: paidForThisSession check — no double payment within one session
  */
 
 const RITUAL_CHAIN_ID     = 1979;
@@ -16,7 +16,7 @@ const RITUAL_NETWORK = {
 };
 
 const RITUAL_RECEIVER = '0xF52812a57f33C72528a3D870271D1a0023FA7C5f';
-const ENTRY_FEE_CRAT  = 0.01;
+const ENTRY_FEE_CRAT  = 0.1;
 const ENTRY_FEE_WEI   = BigInt(Math.round(ENTRY_FEE_CRAT * 1e18));
 const EXPLORER_URL    = 'https://explorer.ritualfoundation.org';
 
@@ -406,14 +406,7 @@ window.requestPayToPlay = function () {
         // Если кошелёк НЕ подключён — блокируем игру
         if (!ws.connected) {
             alert('To play, you need to connect a wallet and pay the entry fee.\n\nClick "Connect Wallet" in the top right corner.');
-            resolve(false);
-            return;
-        }
-
-        // ✅ ИСПРАВЛЕНИЕ: если уже оплатил в этой сессии — пропускаем модалку
-        if (ws.paidForThisSession) {
-            console.log('[web3wallet] Session already paid, skipping payment modal.');
-            resolve(true);
+            resolve(false); // false = игра не начнётся
             return;
         }
 
@@ -448,27 +441,27 @@ window.requestPayToPlay = function () {
             currentPayBtn.textContent = 'Sending...';
             setPayStatus('Waiting for wallet confirmation...');
 
-            try {
-                // Используем rawProvider напрямую — минуем ethers который добавляет EIP-1559 поля
-                const raw = ws.rawProvider || ws.provider.provider;
+    try {
+    // Используем rawProvider напрямую — минуем ethers который добавляет EIP-1559 поля
+    const raw = ws.rawProvider || ws.provider.provider;
 
-                const gasPriceHex = await raw.request({ method: 'eth_gasPrice', params: [] });
-                const nonceHex    = await raw.request({ method: 'eth_getTransactionCount', params: [ws.address, 'latest'] });
+    const gasPriceHex = await raw.request({ method: 'eth_gasPrice', params: [] });
+    const nonceHex    = await raw.request({ method: 'eth_getTransactionCount', params: [ws.address, 'latest'] });
 
-                // Передаём только legacy поля (gasPrice без max*) — кошелёк отправит type 0
-                const txHash = await raw.request({
-                    method: 'eth_sendTransaction',
-                    params: [{
-                        from:     ws.address,
-                        to:       RITUAL_RECEIVER,
-                        value:    '0x' + ENTRY_FEE_WEI.toString(16),
-                        gas:      '0x5208',
-                        gasPrice: gasPriceHex,
-                        nonce:    nonceHex
-                    }]
-                });
+    // Передаём только legacy поля (gasPrice без max*) — кошелёк отправит type 0
+    const txHash = await raw.request({
+        method: 'eth_sendTransaction',
+        params: [{
+            from:     ws.address,
+            to:       RITUAL_RECEIVER,
+            value:    '0x' + ENTRY_FEE_WEI.toString(16),
+            gas:      '0x5208',
+            gasPrice: gasPriceHex,
+            nonce:    nonceHex
+        }]
+    });
 
-                const tx = { hash: txHash, wait: () => ws.provider.waitForTransaction(txHash) };
+    const tx = { hash: txHash, wait: () => ws.provider.waitForTransaction(txHash) };
 
                 setPayStatus('Transaction sent, waiting for confirmation...');
                 await tx.wait();
@@ -512,3 +505,4 @@ setInterval(() => {
 }, 30000);
 
 console.log('[web3wallet] Loaded. EIP-6963 + legacy detection, mandatory payment, legacy tx (type 0).');
+
