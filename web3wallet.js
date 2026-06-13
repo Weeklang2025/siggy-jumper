@@ -16,7 +16,7 @@ const RITUAL_NETWORK = {
 };
 
 const RITUAL_RECEIVER = '0xF52812a57f33C72528a3D870271D1a0023FA7C5f';
-const ENTRY_FEE_CRAT  = 0.1;
+const ENTRY_FEE_CRAT  = 0.01;
 const ENTRY_FEE_WEI   = BigInt(Math.round(ENTRY_FEE_CRAT * 1e18));
 const EXPLORER_URL    = 'https://explorer.ritualfoundation.org';
 
